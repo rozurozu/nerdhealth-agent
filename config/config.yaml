@@ -4,34 +4,43 @@
 # これは「種」。scripts/seed.sh で ./data/config.yaml にコピーされ、
 # コンテナ内では /opt/data/config.yaml として読まれる。
 # 既に ./data/config.yaml がある場合 seed.sh は上書きしない（Hermes 自身の編集を尊重）。
+#
+# ⚠️ このファイルは git 管理。API キーの「値」を直接書かないこと。
+#    キーは data/.env の OPENAI_API_KEY に置き、custom_providers の key_env で参照する。
 # ============================================================================
 
-model:
-  # 日々の問診・催促はこれで十分（低レイテンシ・定額）
-  default: fugu
-  provider: custom
-  base_url: https://api.sakana.ai/v1
+# Sakana Fugu を OpenAI 互換の named custom provider として定義する。
+# provider: custom（無印）で api_key/key_env を省くと、Hermes は "no-key-required" を
+# Authorization に送るため 401 になる。必ず key_env でキーの在り処を明示する。
+custom_providers:
+  - name: sakana
+    base_url: https://api.sakana.ai/v1
+    key_env: OPENAI_API_KEY        # data/.env の OPENAI_API_KEY を読む
+    # api_mode: chat_completions   # 既定。Sakana は /chat/completions 対応なので省略可
 
+model:
+  default: fugu                    # 低レイテンシ・定額。日々の問診・催促はこれで十分
+  provider: custom:sakana
   # Hermes はツール利用に最低 64,000 トークンの context を要求し、足りないと起動拒否する。
-  # Fugu がこれを満たすかは初回起動ログで確認すること（拒否されたら fugu-ultra 等に変更）。
   context_length: 64000
 
-# 週次の重い調査・分析だけ上位モデルに上げたい場合、cron ジョブ側で model: fugu-ultra を指定する
+# 週次の重い調査・分析だけ上位モデルに上げたい場合、cron ジョブ側で fugu-ultra を指定する
 # （定額プランが fugu-ultra を含むかはコンソールで確認）。
 
-# --- 将来 local LLM を別マシンに用意したときの差し替え例 --------------------
-# 同じ custom 枠で base_url を差し替えるだけ。ローカル優先＋クラウド予備も可能。
+# --- 将来 local LLM を別マシンに用意したとき -------------------------------
+# custom_providers にもう1つ足して切り替える。例:
+# custom_providers:
+#   - name: local
+#     base_url: http://<別マシンのLAN IP>:11434/v1   # Ollama の OpenAI 互換は /v1 必須
+#     # キー不要なら key_env を省略（"no-key-required" が使われる）
 # model:
 #   default: <local-model-name>
-#   provider: custom
-#   base_url: http://<別マシンのLAN IP>:11434/v1   # Ollama の OpenAI 互換は /v1 まで必須
-#   context_length: 64000
+#   provider: custom:local
 # fallback_providers:
-#   - provider: custom
-#     base_url: https://api.sakana.ai/v1
+#   - provider: custom:sakana
 #     model: fugu
-# ※ local マシンは LAN(RFC1918) 上なので、firewall.sh の egress 牢でその 1 ホストだけ例外許可する。
+# ※ local マシンは LAN(RFC1918) 上なので、firewall.sh でその 1 ホストだけ egress 例外許可する。
 
-# --- cron pre-script のタイムアウト（必要なら） -----------------------------
+# --- cron pre-script のタイムアウト（必要なら） ----------------------------
 # cron:
 #   script_timeout_seconds: 120

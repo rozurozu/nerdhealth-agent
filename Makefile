@@ -48,6 +48,10 @@ pull: ## イメージ更新（更新後は make up で再作成）
 setup: ## 初回セットアップウィザード（Discord等の連携を有効化。1回だけ・対話）
 	$(COMPOSE) run --rm $(SERVICE) setup
 
+.PHONY: chat
+chat: ## コンソールで Hermes と対話（ターミナルUI・Ctrl-C で抜ける）
+	$(COMPOSE) exec $(SERVICE) hermes
+
 .PHONY: shell
 shell: ## コンテナ内シェルに入る
 	$(COMPOSE) exec $(SERVICE) sh

@@ -45,14 +45,14 @@ nerdhealth-agent/
 コマンドは Makefile に集約してある（引数なしの `make` でヘルプ）。
 
 ```bash
-# 1) 秘密と種を用意
-cp .env.example .env
-$EDITOR .env          # Sakana APIキー / Discord Botトークン+自分のUserID / ダッシュボードBasic認証
-make seed             # prompts/SOUL.md と config/config.yaml を ./data へ
+# 1) 種と秘密を用意（秘密は data/.env に置く＝Hermesがネイティブに読む唯一の場所）
+make seed                  # SOUL.md / config.yaml に加え、data/.env テンプレも初回コピー
+$EDITOR data/.env          # OPENAI_API_KEY(=Sakanaキー) / DISCORD_* / ダッシュボードBasic認証 を実値に
 
 # 2) 起動（Bot が数秒で Discord にオンライン。ログで context_length 64k が通るか確認）
 make up
 make logs
+#    ※ 以降 data/.env を直したら反映は `make restart` でよい（down/up 不要）
 
 # 3) スケジュール（催促・週次サマリ）は Hermes 自身に作らせる
 #    Discord でこう頼むだけ：

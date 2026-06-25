@@ -28,5 +28,15 @@ copy_seed() {
 copy_seed prompts/SOUL.md     data/SOUL.md
 copy_seed config/config.yaml  data/config.yaml
 
+# 秘密の置き場は data/.env（Hermes がネイティブに読む）。テンプレを初回だけ置く。
+# ★ --force でも data/.env は絶対に上書きしない（鍵や /sethome が書いた行を壊さないため）。
+if [[ -f data/.env ]]; then
+  echo "skip  : data/.env は既存（鍵保護のため --force でも上書きしない）"
+else
+  cp .env.example data/.env
+  echo "seeded: .env.example -> data/.env（OPENAI_API_KEY 等を実値に編集すること）"
+fi
+
 echo
-echo "完了。cron ジョブは config/cron/jobs.md を参照して登録すること。"
+echo "完了。次に data/.env の OPENAI_API_KEY / DISCORD_* を実値に編集すること。"
+echo "cron ジョブは config/cron/jobs.md を参照して登録する。"

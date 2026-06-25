@@ -14,11 +14,10 @@ services:
     command: gateway run
     restart: unless-stopped
 
-    env_file:
-      - .env
-
+    # 秘密(APIキー・Discord等)は env_file で渡さない。Hermes が /opt/data/.env(= ./data/.env)を
+    # ネイティブに読む（/sethome もそこへ書く）。源を1本に絞り、二重参照の混乱を避ける。
     environment:
-      # コンテナ内のデータ基底を /opt/data に固定（既定の場合もあるが明示する）
+      # コンテナ内のデータ基底を /opt/data に固定（これにより /opt/data/.env が読まれる）
       HERMES_HOME: /opt/data
 
     volumes:
