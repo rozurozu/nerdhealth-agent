@@ -21,8 +21,10 @@ custom_providers:
 model:
   default: fugu                    # 低レイテンシ・定額。日々の問診・催促はこれで十分
   provider: custom:sakana
-  # Hermes はツール利用に最低 64,000 トークンの context を要求し、足りないと起動拒否する。
-  context_length: 64000
+  # Fugu の実上限は 1M だが、コーチ用途では過剰（遅い・272k超で課金レート上昇）。
+  # 余裕を持ちつつ閾値内の 200k に設定（Hermes はツール利用に最低 64k を要求）。
+  # ※ context_length は env では設定不可。ここ config.yaml が唯一の置き場。
+  context_length: 200000
 
 # 週次の重い調査・分析だけ上位モデルに上げたい場合、cron ジョブ側で fugu-ultra を指定する
 # （定額プランが fugu-ultra を含むかはコンソールで確認）。
