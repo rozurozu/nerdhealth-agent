@@ -1,0 +1,15 @@
+# Hermes の実データ（記憶・SQLite・セッション・鍵）。絶対に git 管理しない。
+/data/
+
+# 秘密
+.env
+*.key
+
+# バックアップ成果物
+/backups/
+*.tar.gz
+*.tar.zst
+
+# OS / エディタ
+.DS_Store
+*.swp

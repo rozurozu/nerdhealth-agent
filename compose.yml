@@ -1,0 +1,55 @@
+# ============================================================================
+# Hermes 健康管理エージェント — Docker Compose
+#
+# 役割: 「Hermes 本体」ではなく「Hermes を運用する設定」を管理する。
+# データ(記憶/SQLite/セッション/鍵)はすべて ./data (= コンテナ内 /opt/data) に貯まる。
+# ./data は git 管理しない。失うと全履歴が消えるので scripts/backup.sh で退避する。
+# ============================================================================
+
+services:
+  hermes:
+    # NOTE: 本番では :latest をやめて具体バージョンに固定する（例 :v2026.4.16）。
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes
+    command: gateway run
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      # コンテナ内のデータ基底を /opt/data に固定（既定の場合もあるが明示する）
+      HERMES_HOME: /opt/data
+
+    volumes:
+      # 唯一の永続領域。SOUL.md / config.yaml / cron / memories / skills / SQLite が入る
+      - ./data:/opt/data
+
+    # --- 公開ポート: ダッシュボードは loopback のみ（LAN に晒さない） ---------
+    ports:
+      - "127.0.0.1:8642:8642"
+
+    # --- 安全境界（egress 優先ハードニング） ----------------------------------
+    # 自分でスキルを書いて実行するエージェントなので、コンテナ自体をサンドボックスにする。
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # NOTE: cap_drop:ALL で s6-overlay 起動に失敗する場合は docker logs を見て
+    #       不足 cap だけ cap_add で戻す（例: - SETUID / - SETGID / - CHOWN）。
+    # read_only: true は自己書き込み性質と衝突しやすいので初期は付けない。
+    #   付けるなら /tmp と /run を tmpfs にし、/opt/data だけ書込可にして検証する。
+
+    # --- リソース制限（2011 Mac mini を守る） ---------------------------------
+    mem_limit: 2g
+    cpus: "1.5"
+
+    # --- ネットワーク ---------------------------------------------------------
+    # 専用 bridge に隔離。RFC1918(LAN/ホスト) 宛の遮断は scripts/firewall.sh で
+    # ホスト側 nftables/iptables(DOCKER-USER) に入れる（compose だけでは塞げない）。
+    networks:
+      - hermes-net
+
+networks:
+  hermes-net:
+    driver: bridge

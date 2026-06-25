@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# ============================================================================
+# seed.sh — リポジトリの「種」(SOUL.md / config.yaml) を ./data へ初回コピーする。
+#
+# ./data は /opt/data にマウントされ Hermes が読む。Hermes 自身が後から
+# SOUL.md / config.yaml を編集して育てるため、**既に存在する場合は上書きしない**。
+# 上書きしたいときは --force を付ける。
+# ============================================================================
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+FORCE=0
+[[ "${1:-}" == "--force" ]] && FORCE=1
+
+mkdir -p data
+
+copy_seed() {
+  local src="$1" dst="$2"
+  if [[ -f "$dst" && "$FORCE" -eq 0 ]]; then
+    echo "skip  : $dst は既に存在（--force で上書き）"
+  else
+    cp "$src" "$dst"
+    echo "seeded: $src -> $dst"
+  fi
+}
+
+copy_seed prompts/SOUL.md     data/SOUL.md
+copy_seed config/config.yaml  data/config.yaml
+
+echo
+echo "完了。cron ジョブは config/cron/jobs.md を参照して登録すること。"
