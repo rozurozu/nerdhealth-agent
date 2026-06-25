@@ -33,10 +33,20 @@ services:
     # 自分でスキルを書いて実行するエージェントなので、コンテナ自体をサンドボックスにする。
     security_opt:
       - no-new-privileges:true
+    # s6-overlay の初期化(root→専用ユーザーへの権限降格)に必要な cap だけ残し、他は全部落とす。
+    # cap_drop: ALL だけにすると s6-applyuidgid が setgroups/chown できず code 111 で起動ループする。
     cap_drop:
       - ALL
-    # NOTE: cap_drop:ALL で s6-overlay 起動に失敗する場合は docker logs を見て
-    #       不足 cap だけ cap_add で戻す（例: - SETUID / - SETGID / - CHOWN）。
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+      - KILL
+      - SETPCAP
+    # フォールバック: それでも 111 ループが続くなら、まず動かす優先で上の cap_drop/cap_add を
+    #   まるごとコメントアウトする（Docker 既定の cap に戻る。macOS お試しはこれで十分）。
     # read_only: true は自己書き込み性質と衝突しやすいので初期は付けない。
     #   付けるなら /tmp と /run を tmpfs にし、/opt/data だけ書込可にして検証する。
 
