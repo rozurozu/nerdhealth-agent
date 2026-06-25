@@ -1,7 +1,7 @@
 # nerdhealth-agent — 運用ショートカット
 #   docker compose のサービス名は hermes。compose プロジェクト名はこのディレクトリ名(nerdhealth-agent)。
 #   使い方:  make            # ヘルプ
-#            make up / make logs / make connect ...
+#            make seed / make up / make logs ...
 
 COMPOSE := docker compose
 SERVICE := hermes
@@ -47,10 +47,6 @@ pull: ## イメージ更新（更新後は make up で再作成）
 .PHONY: shell
 shell: ## コンテナ内シェルに入る
 	$(COMPOSE) exec $(SERVICE) sh
-
-.PHONY: connect
-connect: ## Discord 接続（hermes setup --portal、初回1回だけ）
-	$(COMPOSE) exec $(SERVICE) hermes setup --portal
 
 .PHONY: hermes
 hermes: ## 任意の hermes コマンド。例: make hermes ARGS="cron list"

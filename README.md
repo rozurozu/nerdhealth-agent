@@ -47,28 +47,25 @@ nerdhealth-agent/
 ```bash
 # 1) 秘密と種を用意
 cp .env.example .env
-$EDITOR .env          # Sakana の API キー、ダッシュボード Basic 認証を設定
+$EDITOR .env          # Sakana APIキー / Discord Botトークン+自分のUserID / ダッシュボードBasic認証
 make seed             # prompts/SOUL.md と config/config.yaml を ./data へ
 
-# 2) 起動（context_length 64k が Fugu に受理されるかログで確認）
+# 2) 起動（Bot が数秒で Discord にオンライン。ログで context_length 64k が通るか確認）
 make up
 make logs
 
-# 3) Discord を接続（対話・1回だけ。トークンは ./data に永続）
-make connect
-
-# 4) スケジュール（催促・週次サマリ）は Hermes 自身に作らせる
+# 3) スケジュール（催促・週次サマリ）は Hermes 自身に作らせる
 #    Discord でこう頼むだけ：
 #      「毎日18時と20時半に、まだ運動してなければ催促して。日曜20時に週次サマリを送って」
 #    → Hermes が cronjob ツールで自分で登録・調整する。
 make cron-list        # 登録状況の確認
 #    ※決定的に再現したい場合だけ config/cron/jobs.md の hermes cron create を使う
 
-# 5) egress 牢（root で）
+# 4) egress 牢（root で。※Linux ホスト専用。macOS のお試しでは効かないので省略可）
 make subnet                          # コンテナの subnet を確認
 sudo make firewall SUBNET=<上の値>   # 例: sudo make firewall SUBNET=172.18.0.0/16
 
-# 6) 日次バックアップを host cron に登録
+# 5) 日次バックアップを host cron に登録
 #    0 4 * * *  cd /path/to/nerdhealth-agent && make backup >> backups/backup.log 2>&1
 ```
 
