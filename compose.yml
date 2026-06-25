@@ -47,6 +47,8 @@ services:
       - SETPCAP
     # フォールバック: それでも 111 ループが続くなら、まず動かす優先で上の cap_drop/cap_add を
     #   まるごとコメントアウトする（Docker 既定の cap に戻る。macOS お試しはこれで十分）。
+    # TODO(prod): Linux 本番ではここを締め直す。cap_drop:ALL を活かしたまま、起動する最小 cap を
+    #   ログで検証して確定する。お試しでコメントアウトした場合は必ず元に戻すこと。
     # read_only: true は自己書き込み性質と衝突しやすいので初期は付けない。
     #   付けるなら /tmp と /run を tmpfs にし、/opt/data だけ書込可にして検証する。
 
@@ -57,6 +59,8 @@ services:
     # --- ネットワーク ---------------------------------------------------------
     # 専用 bridge に隔離。RFC1918(LAN/ホスト) 宛の遮断は scripts/firewall.sh で
     # ホスト側 nftables/iptables(DOCKER-USER) に入れる（compose だけでは塞げない）。
+    # TODO(prod): Linux 本番で scripts/firewall.sh の egress 牢を適用する
+    #   （make subnet → sudo make firewall SUBNET=...）。macOS お試しでは効かないため未適用。
     networks:
       - hermes-net
 

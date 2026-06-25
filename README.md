@@ -69,6 +69,32 @@ sudo make firewall SUBNET=<上の値>   # 例: sudo make firewall SUBNET=172.18.
 #    0 4 * * *  cd /path/to/nerdhealth-agent && make backup >> backups/backup.log 2>&1
 ```
 
+## Discord セットアップ（つまずきポイント）
+
+[Developer Portal](https://discord.com/developers/applications) でアプリ＋Bot を作る。要点はこの4つ：
+
+1. **Bot Token を使う**（Webhook URL ではない）。Bot ページ → Reset Token で取得し `.env` の
+   `DISCORD_BOT_TOKEN` に。Webhook は一方通行で会話できない。
+2. **Privileged Intents を ON**（Bot ページ → Privileged Gateway Intents）。
+   - **Message Content Intent** … 必須。OFF だと `PrivilegedIntentsRequired` で接続失敗＝オフラインになる。
+   - Server Members Intent … 通常は不要。intent エラーが続くときだけ ON。
+3. **招待スコープは `bot` + `applications.commands` の両方**（OAuth2 → URL Generator）。
+   - `applications.commands` が無いと `/sethome` などのスラッシュコマンドが**候補にすら出ない**。
+   - Bot Permissions は **View Channels / Send Messages / Read Message History** を付ける
+     （Read Message History は会話文脈の読み取り用。推奨）。
+   - 生成 URL で自分のサーバーに認可。スコープを足したら `make restart` でコマンド再登録。
+4. **`.env` の必須2つ**：`DISCORD_BOT_TOKEN` と `DISCORD_ALLOWED_USERS`（自分の User ID。
+   未設定だと安全策で全員拒否）。
+
+**会話の作法**：サーバーのチャンネルでは既定で **@mention したときだけ応答**する
+（`DISCORD_REQUIRE_MENTION=true`）。**DM は mention 不要で常に応答**。
+proactive（催促・週次サマリ）の投稿先は、対象チャンネルで **`/sethome`** を打つと設定される。
+
+**「1チャンネルで mention 無しに会話／他は無視」にする推奨2点セット**（`.env`）：
+- `DISCORD_REQUIRE_MENTION=false` … mention 不要で会話
+- `DISCORD_ALLOWED_CHANNELS=<そのチャンネルID>` … 応答をそのチャンネルだけに限定
+  （`false` だけだと全チャンネルで暴発するので**セットで必須**）。設定後 `make restart`。
+
 ## 動作確認（end-to-end）
 
 1. Discord で 1 通送って応答が返る → Sakana Fugu に OpenAI 互換経由で到達できている。
@@ -82,7 +108,19 @@ sudo make firewall SUBNET=<上の値>   # 例: sudo make firewall SUBNET=172.18.
 ## 運用メモ
 
 - **`./data` は唯一の資産**。失うと全履歴が消える。`backup.sh` を必ず回す。
-- イメージは本番では `:latest` をやめて具体バージョンに固定する。
 - `cap_drop: ALL` で起動に失敗したら、ログを見て不足 cap だけ `cap_add` で戻す。
 - 将来 local LLM を別マシンに用意する場合: `config/config.yaml` の `base_url` を差し替え、
   `firewall.sh` でそのホスト 1 台だけ egress 例外許可する。
+
+## 本番（Linux ホスト）移行 TODO
+
+いまは macOS でのお試し構成。常時稼働の Linux 本番ホストへ移すときに **セキュリティを締め直す**。
+コード中の該当箇所は `grep -rn "TODO(prod)" .` で一覧できる。
+
+- [ ] **cap を締める** — `compose.yml` の `cap_drop: ALL` ＋最小 `cap_add` を有効化し、起動ログで検証。
+      （お試しでコメントアウトしていたら必ず戻す）
+- [ ] **egress 牢を適用** — `make subnet` → `sudo make firewall SUBNET=...`（LAN/ホスト遮断。macOS では効かない）
+- [ ] **イメージタグ固定** — `:latest` をやめて具体バージョン（例 `:v2026.4.16`）に。
+- [ ] **read_only 検討** — `/tmp` `/run` を tmpfs にして root FS を読み取り専用にできるか検証。
+- [ ] **常時稼働の担保** — スリープ無効・電源/ネット常時・`restart: unless-stopped`・OS 起動時自動起動。
+- [ ] **日次バックアップ** — `make backup` を host cron に登録。

@@ -2,6 +2,9 @@
 # ============================================================================
 # firewall.sh — egress 牢（ホスト側 / Debian 12）
 #
+# TODO(prod): これは Linux 本番ホストで適用する締めの作業。macOS お試し中は未適用。
+#   本番移行時に `make subnet` → `sudo make firewall SUBNET=...` を必ず実行すること。
+#
 # 目的: 自己改善エージェントのコンテナから、LAN(RFC1918) とホストへの通信を遮断する。
 #       公開インターネット(Sakana API / Discord / Web Fetch)は許可する。
 #
