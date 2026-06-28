@@ -26,10 +26,20 @@ uid="$(stat -c '%u' data 2>/dev/null || stat -f '%u' data)"
 gid="$(stat -c '%g' data 2>/dev/null || stat -f '%g' data)"
 
 echo "reseed: data/ 所有 uid=$uid gid=$gid を引き継いで SOUL.md / config.yaml を上書きする"
-sudo install -o "$uid" -g "$gid" -m 644 prompts/SOUL.md    data/SOUL.md
-echo "seeded: prompts/SOUL.md     -> data/SOUL.md"
-sudo install -o "$uid" -g "$gid" -m 644 config/config.yaml data/config.yaml
-echo "seeded: config/config.yaml  -> data/config.yaml"
+
+# install -o は coreutils の版によって数値 UID を名前として解決しようとし
+# "invalid user 10000" で失敗する。名前解決を避け、cp で上書き → 数値指定が
+# 確実な chown で所有者を合わせる（dst が新規なら root 所有になるのを chown で直す）。
+reseed_file() {  # src dst
+  local src="$1" dst="$2"
+  sudo cp "$src" "$dst"
+  sudo chown "$uid:$gid" "$dst"
+  sudo chmod 644 "$dst"
+  echo "seeded: $src -> $dst"
+}
+
+reseed_file prompts/SOUL.md    data/SOUL.md
+reseed_file config/config.yaml data/config.yaml
 
 # Hermes に種を再読込させる（SOUL.md は session 開始時に system prompt へ注入される）。
 echo "restart: Hermes を再起動して種を再読込する"
