@@ -31,6 +31,10 @@ init: ## 初期化: host.env生成 + HDDバックアップ先作成 + seed（初
 seed: ## 種(SOUL.md/config.yaml)を ./data へコピー（既存は上書きしない）
 	scripts/seed.sh
 
+.PHONY: reseed
+reseed: ## 稼働デプロイへ種(SOUL.md/config.yaml)を再投入（data はコンテナ所有のまま・要sudo）
+	scripts/reseed.sh
+
 .PHONY: up
 up: ## 起動（バックグラウンド）
 	$(COMPOSE) up -d

@@ -15,6 +15,15 @@ FORCE=0
 
 mkdir -p data
 
+# data/ がコンテナ(uid≠自分)所有で書けないときは、稼働デプロイ向けの reseed へ誘導する。
+# （make up 後は s6 が ./data を uid 10000・700 にするため、ホストからは直接書けない）
+if [[ -e data && ( ! -w data || ! -x data ) ]]; then
+  owner=$(stat -c '%u' data 2>/dev/null || stat -f '%u' data)
+  echo "data/ は uid=$owner 所有で書き込めない（コンテナ稼働中の想定）。" >&2
+  echo "稼働中デプロイへ種を更新するには:  make reseed" >&2
+  exit 1
+fi
+
 copy_seed() {
   local src="$1" dst="$2"
   if [[ -f "$dst" && "$FORCE" -eq 0 ]]; then
