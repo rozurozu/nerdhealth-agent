@@ -14,10 +14,21 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# ホスト固有設定(退避先パス等)を読む。host.env が真・組込デフォルトはフォールバック。
+# ⚠ 秘密は読まない（秘密は data/.env）。host.env はパス等だけ。
+[ -f host.env ] && . ./host.env
+
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 KEEP="${KEEP:-14}"                       # 直近何世代を残すか
 STAMP="$(date +%Y%m%d-%H%M%S)"
 OUT="${BACKUP_DIR}/hermes-data-${STAMP}.tar.gz"
+
+# マウントガード: 退避先が載るべきマウントが外れていたら中止する。
+# （未マウントだと空マウントポイント＝OSディスク側へ書き「退避したつもり」事故になる）
+if [ -n "${BACKUP_MOUNT:-}" ] && ! mountpoint -q "$BACKUP_MOUNT"; then
+  echo "ERROR: $BACKUP_MOUNT is not mounted; aborting backup" >&2
+  exit 1
+fi
 
 mkdir -p "$BACKUP_DIR"
 

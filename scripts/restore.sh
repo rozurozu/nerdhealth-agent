@@ -10,11 +10,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# ホスト固有設定(退避先パス)を読む。available 一覧を BACKUP_DIR 基準にする。
+[ -f host.env ] && . ./host.env
+BACKUP_DIR="${BACKUP_DIR:-./backups}"
+
 ARCHIVE="${1:-}"
 if [[ -z "$ARCHIVE" || ! -f "$ARCHIVE" ]]; then
   echo "usage: scripts/restore.sh <backup.tar.gz>" >&2
-  echo "available:" >&2
-  ls -1t backups/hermes-data-*.tar.gz 2>/dev/null >&2 || true
+  echo "available (${BACKUP_DIR}):" >&2
+  ls -1t "${BACKUP_DIR}"/hermes-data-*.tar.gz 2>/dev/null >&2 || true
   exit 1
 fi
 

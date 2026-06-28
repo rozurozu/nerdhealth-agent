@@ -1,0 +1,16 @@
+# ============================================================================
+# nerdhealth-backup.timer — 毎日 04:00 に nerdhealth-backup.service を発火する。
+#
+# `make backup-timer` が ~/.config/systemd/user/ へ導入し enable --now する。
+# 未ログインでも動かすには一度だけ:  sudo loginctl enable-linger $USER
+# Persistent=true: 停止中に発火時刻を跨いだら、次回起動時に取りこぼしを実行する。
+# ============================================================================
+[Unit]
+Description=Nightly nerdhealth-agent data backup
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

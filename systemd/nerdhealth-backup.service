@@ -1,0 +1,20 @@
+# ============================================================================
+# nerdhealth-backup.service — ./data を夜間に安全退避する oneshot サービス。
+#
+# ユーザー単位(systemctl --user)で動かす。root も username ハードコードも不要。
+# `make backup-timer` が @WORKDIR@ をリポジトリ絶対パスに置換して
+# ~/.config/systemd/user/ へ導入する（このファイルは雛形なので直接 enable しない）。
+#
+# 単発起動でログ確認:  systemctl --user start nerdhealth-backup.service
+#                       journalctl --user -u nerdhealth-backup -e
+# ============================================================================
+[Unit]
+Description=nerdhealth-agent data backup (stop -> tar ./data -> start)
+
+[Service]
+Type=oneshot
+WorkingDirectory=@WORKDIR@
+ExecStart=@WORKDIR@/scripts/backup.sh
+# docker / mountpoint / tar を確実に解決するため最小 PATH を明示。
+# docker は実行ユーザーの docker グループ所属で疎通する（root 不要）。
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

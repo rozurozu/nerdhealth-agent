@@ -5,6 +5,9 @@
 .env
 *.key
 
+# ホスト固有設定（パスのみ・秘密は data/.env）。雛形 host.env.example は追跡する。
+/host.env
+
 # バックアップ成果物
 /backups/
 *.tar.gz

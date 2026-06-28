@@ -6,6 +6,7 @@
 COMPOSE := docker compose
 SERVICE := hermes
 NET     := nerdhealth-agent_hermes-net
+UNIT_DIR := $(HOME)/.config/systemd/user
 
 .DEFAULT_GOAL := help
 
@@ -15,6 +16,17 @@ help: ## このヘルプを表示
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 # --- ライフサイクル ---------------------------------------------------------
+.PHONY: init
+init: ## 初期化: host.env生成 + HDDバックアップ先作成 + seed（初回これ1つ・sudo不要）
+	@if [ -f host.env ]; then \
+	  echo "skip  : host.env は既存（編集して使う）"; \
+	else \
+	  cp host.env.example host.env; \
+	  echo "create: host.env を作成（BACKUP_DIR / KEEP を実値に編集すること）"; \
+	fi
+	@. ./host.env; mkdir -p "$$BACKUP_DIR" && echo "ensure: $$BACKUP_DIR"
+	scripts/seed.sh
+
 .PHONY: seed
 seed: ## 種(SOUL.md/config.yaml)を ./data へコピー（既存は上書きしない）
 	scripts/seed.sh
@@ -80,3 +92,13 @@ backup: ## ./data をバックアップ（停止→tar→再開）
 .PHONY: restore
 restore: ## バックアップから復元。例: make restore FILE=backups/xxx.tar.gz
 	scripts/restore.sh $(FILE)
+
+.PHONY: backup-timer
+backup-timer: ## 夜間自動バックアップ(systemd user timer)を導入・有効化
+	mkdir -p "$(UNIT_DIR)"
+	sed 's|@WORKDIR@|$(CURDIR)|g' systemd/nerdhealth-backup.service > "$(UNIT_DIR)/nerdhealth-backup.service"
+	cp systemd/nerdhealth-backup.timer "$(UNIT_DIR)/nerdhealth-backup.timer"
+	systemctl --user daemon-reload
+	systemctl --user enable --now nerdhealth-backup.timer
+	@echo "ok: 確認は  systemctl --user list-timers | grep nerdhealth-backup"
+	@echo "   未ログインでも動かすには一度だけ:  sudo loginctl enable-linger $$USER"
