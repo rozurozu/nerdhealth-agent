@@ -19,6 +19,8 @@ services:
     environment:
       # コンテナ内のデータ基底を /opt/data に固定（これにより /opt/data/.env が読まれる）
       HERMES_HOME: /opt/data
+      # コンテナOSのタイムゾーン（date / ログのタイムスタンプを JST に）
+      TZ: Asia/Tokyo
 
     volumes:
       # 唯一の永続領域。SOUL.md / config.yaml / cron / memories / skills / SQLite が入る
