@@ -127,18 +127,20 @@ Hermes を再起動して種を再読込させる（要 `sudo`・数秒の再起
 ## CI/CD（GitHub Actions・セルフホストランナー）
 
 `make reseed` の手動オペを自動化する。ランナーは **hermes が動く稼働ホスト本体**に常駐させ、同じマシンで
-直接デプロイする（公開ネットへ晒さずに済む）。ワークフローは `.github/workflows/` の 2 本。
+直接デプロイする（公開ネットへ晒さずに済む）。`.github/workflows/ci.yml` 1 本に **2 ジョブ**を持たせ、
+**validate が成功したときだけ reseed が走る**（`reseed` は `needs: validate`）構成にしてある。
 
-| ファイル | 契機 | 中身 |
+| ジョブ | 契機 | 中身 |
 |---|---|---|
-| `ci.yml` | PR ／ main への push | `scripts/*.sh` を ShellCheck（warning 以上で fail）／ `docker compose config -q` ／ `config/config.yaml` の YAML parse。lint は Docker イメージ経由でホストを汚さない |
-| `deploy.yml` | main への push（`prompts/**` `config/**`）／ 手動 `workflow_dispatch` | 稼働ディレクトリを `git reset --hard origin/main` → `make reseed` → hermes が `running` か確認 |
+| `validate` | PR ／ main への push ／ 手動 | `scripts/*.sh` を ShellCheck（warning 以上で fail）／ `docker compose config -q` ／ `config/config.yaml` の YAML parse。lint は Docker イメージ経由でホストを汚さない |
+| `reseed` | `validate` 成功 **かつ**（main への push で `prompts/**`・`config/**` が変化 ／ 手動 `workflow_dispatch`） | 稼働ディレクトリを `git reset --hard origin/main` → `make reseed` → hermes が `running` か確認 |
 
-> `deploy.yml` は**ランナーの自動チェックアウトでは動かさない**。そこには永続 `./data` が無く `make reseed` が
+> `reseed` は**ランナーの自動チェックアウトでは動かさない**。そこには永続 `./data` が無く `make reseed` が
 > 失敗する。稼働ディレクトリ（既定 `/opt/nerdhealth-agent`）で実行する。`./data`・`host.env` は gitignore 済みなので
 > `git reset --hard` でも消えない（`git clean` は使わない）。デプロイにシークレットは不要（ローカル完結）。
+> PR では `reseed` は走らない（検証のみ）。validate が落ちれば `reseed` は自動スキップされる。
 
-**ランナー側の前提（一度だけ・未設定だと `deploy.yml` が失敗する）**
+**ランナー側の前提（一度だけ・未設定だと `reseed` ジョブが失敗する）**
 
 ```bash
 # 1) ランナーユーザを docker グループへ（docker compose を sudo 無しで叩く）→ 反映に再ログイン
@@ -157,18 +159,23 @@ gh variable set DEPLOY_DIR -b /opt/nerdhealth-agent
 #    稼働ディレクトリは origin を指す git clone であること（git remote -v で確認）
 ```
 
-- **`runs-on` ラベル**: ワークフローは `[self-hosted, Linux]`。ランナー登録時の実ラベル（既定 `self-hosted` /
-  `Linux` / `X64`）に合わせて調整する。GitHub-hosted を使えるなら `ci.yml` は `ubuntu-latest` でもよい。
+- **`runs-on` ラベル**: ワークフローは `[self-hosted]`（専用ランナー 1 台なら確実に当たる）。複数ランナーを
+  使い分けるなら `[self-hosted, Linux]` 等にラベルを足す。runner がジョブを拾わず「Waiting for a runner…」で
+  止まるときは、(a) ランナーが online（Settings → Actions → Runners が緑の Idle）か、(b) ラベルが一致するか、を疑う。
+- **ランナーの常駐**: `cd /opt/actions-runner/<name> && sudo ./svc.sh install <runner-user> && sudo ./svc.sh start`
+  でサービス化（`./run.sh` の手動起動はログアウトで止まる）。
+- **fetch の無人化**: 稼働ディレクトリの `origin` は **パスワード入力なしで fetch できる**こと（SSH 鍵か保存済み
+  トークン）。対話プロンプトが出ると `reseed` ジョブが固まる。
 - **セキュリティ**: セルフホストランナーは本番ホスト上で動くため、**信頼できない fork からの PR を走らせない**
   設定にする（個人運用の private リポジトリ前提。public 化する場合は fork PR の自動実行を必ず無効化する）。
 
 **初回テストの順序**（いきなり自動デプロイに頼らない）
 
-1. PR を作って `CI / validate` が緑になることを確認。
-2. Actions から `Deploy (reseed)` を手動（`workflow_dispatch`）実行 → ログに `seeded: ... -> data/SOUL.md` と
-   `hermes state: running` が出ること、`make logs` でエラーが無いことを確認。
-3. `prompts/SOUL.md` を 1 行変えて main に push → `Deploy (reseed)` が自動起動して緑になること、
-   `prompts/`・`config/` 以外だけの変更（例 README）では発火しないことを確認。
+1. PR を作って `validate` が緑になることを確認（PR では `reseed` は走らない）。
+2. Actions から `CI / Deploy` を手動（`workflow_dispatch`）実行 → `validate` 成功後に `reseed` が走り、ログに
+   `seeded: ... -> data/SOUL.md` と `hermes state: running` が出ること、`make logs` でエラーが無いことを確認。
+3. `prompts/SOUL.md` を 1 行変えて main に push → `validate` 成功後に `reseed` が自動で続いて緑になること、
+   `prompts/`・`config/` 以外だけの変更（例 README）では `reseed` が発火しないことを確認。
 
 ## セットアップ（手元お試し / Debian 12・Mac mini 上）
 
