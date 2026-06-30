@@ -1,0 +1,39 @@
+# CI — push / PR 時に設定とスクリプトを検証する。
+# このリポジトリはビルド対象のコードを持たない（compose / Makefile / bash / 設定の管理）。
+# よって CI は「壊れた設定・スクリプトを main に入れない」ためのゲートに徹する。
+# lint はホストを汚さないよう Docker イメージ経由で実行する（docker は稼働ホストに有る）。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    # 自前のセルフホストランナー（hermes 稼働ホスト本体）。
+    # GitHub-hosted を使えるなら runs-on: ubuntu-latest に差し替えてよい。
+    # ラベルはランナー登録時の実ラベル（既定: self-hosted / Linux / X64）に合わせること。
+    runs-on: [self-hosted, Linux]
+    steps:
+      - uses: actions/checkout@v4
+
+      # scripts/*.sh の静的解析。info/style は運用上の許容差（SC1091: host.env 未追跡 等）が
+      # 出るため warning 以上だけを失敗扱いにする＝実害のある指摘で確実に落とす。
+      - name: ShellCheck (scripts/*.sh)
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
+            --severity=warning scripts/*.sh
+
+      # compose.yml をスキーマごと検証（env 補間が無いので単体で通る）。
+      - name: compose.yml を検証 (docker compose config)
+        run: docker compose config -q
+
+      # config/config.yaml が YAML として parse できることを確認（compose.yml は上の config で検証済み）。
+      - name: config.yaml の YAML parse 検証
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w mikefarah/yq:latest \
+            '.' config/config.yaml > /dev/null

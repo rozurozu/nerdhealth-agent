@@ -1,0 +1,67 @@
+# Deploy — main の prompts/ ・ config/ 更新を稼働中の hermes へ反映する。
+# 反映手段は make reseed のみ（SOUL.md / config.yaml をコンテナ所有の ./data へ上書きし、
+# docker compose restart hermes で再読込）。SQLite・data/.env は触らない＝データ非破壊・低リスク。
+#
+# 重要: このジョブはランナーの自動チェックアウト (_work/...) では動かさない。
+#       そこには永続 ./data が無く make reseed が失敗する。稼働ディレクトリ
+#       （既定 /opt/nerdhealth-agent。異なる場合はリポジトリ変数 DEPLOY_DIR）で実行する。
+#
+# 前提（README「CI/CD」節を参照。未設定だと失敗する）:
+#   - ランナーは hermes 稼働ホスト本体に常駐
+#   - ランナーユーザが docker グループ所属（docker compose を sudo 無しで叩ける）
+#   - ランナーユーザに NOPASSWD sudo（reseed の sudo cp/chown/chmod 用）
+#   - 稼働ディレクトリが origin を指す git clone であること
+name: Deploy (reseed)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # make reseed が反映する種ファイルの系のみ。それ以外（scripts/compose 等）は
+      # reseed では効かないので発火させない（必要時は手動 workflow_dispatch）。
+      - prompts/**
+      - config/**
+  workflow_dispatch: {}
+
+# デプロイの重複・追い越しを防ぐ（前のデプロイ完了を待ってから次を流す）。
+concurrency:
+  group: deploy-hermes
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reseed:
+    runs-on: [self-hosted, Linux]
+    env:
+      # 稼働ディレクトリ。リポジトリ変数 DEPLOY_DIR があればそれを、無ければ既定値を使う。
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/nerdhealth-agent' }}
+    steps:
+      # 1) 稼働ディレクトリを origin/main に厳密同期する。
+      #    ./data・host.env は gitignore 済みなので reset では消えない（git clean は使わない）。
+      - name: 稼働ディレクトリを origin/main へ同期
+        run: |
+          cd "$DEPLOY_DIR"
+          git fetch --prune origin
+          git checkout main
+          git reset --hard origin/main
+          echo "deployed commit:"
+          git log -1 --oneline
+
+      # 2) 種を再投入して Hermes を再起動（= scripts/reseed.sh）。
+      - name: 種を再投入して再起動 (make reseed)
+        run: |
+          cd "$DEPLOY_DIR"
+          make reseed
+
+      # 3) 再起動後に hermes が定常稼働しているかを確認（crash-loop を検知して赤くする）。
+      - name: 稼働確認
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose ps
+          sleep 5
+          state="$(docker inspect -f '{{.State.Status}}' hermes)"
+          echo "hermes state: $state"
+          test "$state" = "running"
+          docker compose logs --since 60s --no-color hermes | tail -n 40
