@@ -31,7 +31,7 @@ jobs:
     outputs:
       seed_changed: ${{ steps.changes.outputs.seed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5   # v4 は Node20 で非推奨警告。v5 は Node24。
         with:
           fetch-depth: 0   # 後段の差分判定で push 前コミット(before)が要るため全history取得
 
